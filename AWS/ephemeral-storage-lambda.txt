@@ -1,0 +1,12 @@
+Ephemeral Storage in AWS Lambda refers to the temporary storage space available to your function during execution.
+
+It is a local storage taht is provided to each instance of a lambda function for storing temporary files and data.
+
+When lambda function execution ends, this storage is deleted.
+
+Ranges from few hundred MB to a few GB's , depending on specific configuration.
+
+'/tmp' : is commonly uesd as the temporary storage directory OR you can use => {" os.tmpdir() "}
+
+We should clean up temporary file as well
+=> fs.unlinkSync(tempFilePath)
