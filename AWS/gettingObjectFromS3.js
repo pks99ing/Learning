@@ -1,33 +1,51 @@
-// You can get list of all object from specified S3 bucket which has certain prefix that you provide.
-// Here I am using 'aws-sdk'
+require('dotenv').config();
+const { S3Client, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+// Configure AWS SDK v3
+const s3Client = new S3Client({ region: process.env.AWS_REGION, accessKeyId: process.env.AWS_ACCESS_KEY_ID, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY });
 
-// get the aws-sdk library
-const AWS = require('aws-sdk');
-
-// configure your credentials from .env file
-AWS.config.update({ region: process.env.AWS_REGION, accessKeyId: process.env.AWS_ACCESS_KEY_ID, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY });
-
-// create an s3 object (this object will interact with s3)
-const s3 = new AWS.S3();
-
-const params = 
-    // name of the bucket that you want to work with
-    Bucket: 'bucketName',
-    // prefix of the file eg let say you have  (bucketName)/live/new/2024151014444_5_hello.pdf
-    Prefix: 'live/new/2024151014444'
+// Define the parameters for listing objects
+const params = {
+    Bucket: 'bucket-name',
+    Prefix: 'live/new/file-name'
 };
 
-// Call S3 to list objects with the specified prefix
-s3.listObjectsV2(params, (err, data) => {
-    if (err) {
-        console.log('Error', err);
-    } else {
+
+
+// Define an async function to handle the listObjectsV2 operation
+const listObjects = async () => {
+    try {
+        // Call listObjectsV2 using the S3 client
+        const data = await s3Client.send(new ListObjectsV2Command(params));
+
         console.log(`Objects with prefix ${params.Prefix}:`);
-        data.Contents.forEach((obj) => {
-            const urlParams = { Bucket: params.Bucket, Key: obj.Key };
-            // using bucket name and the key you can get the signedUrl using which you can download the file
-            const url = s3.getSignedUrl('getObject', urlParams);
-            console.log('URL for', obj.Key, ':', url);
-        });
+        for (const obj of data.Contents) {
+            // Generate a presigned URL with a 10-minute expiry
+            const urlParams = {
+                Bucket: params.Bucket,
+                Key: obj.Key,
+            };
+            const command = new GetObjectCommand(urlParams);
+            // const response = await s3Client.send(command);
+            // const byteArray = await response.Body.transformToByteArray();
+            // const buffer = Buffer.from(byteArray);
+            // await fs.writeFile("image.pdf", buffer);
+            const url = await getSignedUrl(s3Client, command, { expiresIn: 600 });
+            console.log(url)
+
+        }
+    } catch (err) {
+        console.log('Error', err);
     }
-});
+};
+
+// Call the async function to list objects and generate URLs
+listObjects();
+
+
+
+// * First you want to list all the object that are present in your bucket. So obviously you have to give your bucket name.
+// ListObjectV2Command({Bucket:"bucket-name"}) is used to list all the objects that you have in ur bucket (max returned 1000 object at once) 
+// The "data.Contents" attribute contains the key name of all the object that are returned.
+// Since from the first command we only got list of objects but not actual object. Therefore with GetObjectCommand({Bucket:"bucket-name" ,key:obj.Key}) we make a command and with s3Client object we
+// send the command.
